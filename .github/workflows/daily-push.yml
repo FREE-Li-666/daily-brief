@@ -1,0 +1,45 @@
+name: 每日早报
+
+on:
+  schedule:
+    # UTC 23:00 = 北京时间次日 07:00
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只预览内容，不推送到微信'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+      PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+      QWEATHER_KEY: ${{ secrets.QWEATHER_KEY }}
+      QWEATHER_HOST: ${{ secrets.QWEATHER_HOST }}
+      CITY: ${{ secrets.CITY }}
+      ZODIAC: ${{ secrets.ZODIAC }}
+      TIANAPI_KEY: ${{ secrets.TIANAPI_KEY }}
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安装依赖
+        run: python -m pip install -r requirements.txt
+      - name: 跑单元测试
+        run: python -m unittest discover -s tests -t . -v
+      - name: 预览内容（手动触发且勾选预览时）
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        run: python main.py --dry-run
+      - name: 发送早报
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true'
+        run: python main.py
