@@ -24,8 +24,8 @@ import weather
 import zodiac
 
 TZ = ZoneInfo("Asia/Shanghai")
-DEFAULT_CITY = "合肥"
-DEFAULT_SIGN = "白羊座"
+DEFAULT_CITY = "北京"
+DEFAULT_SIGN = "天秤座"
 DEFAULT_TIMEOUT = 8.0
 
 

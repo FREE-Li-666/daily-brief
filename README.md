@@ -3,11 +3,11 @@
 每天早上 07:00（北京时间）自动给你发一条微信，内容包括今天的天气、黄历宜忌、星座运势和节假日状态。
 
 ```
-🌤 9月16日 周三 · 合肥
+🌤 9月16日 周三 · 北京
 天气　烟霾 19~27℃ ｜ 东风9km/h ｜ 紫外线强
 农历　八月初六 · 白露后第9天
 黄历　宜 开市、交易、立券、纳财 · 忌 嫁娶、破土、进人口 · 冲猪（丁亥）煞东
-星座　白羊座 ★★★★☆ 适合处理旧事，别急着表态。（幸运色酒红 · 幸运数字9）
+星座　天秤座 ★★★★☆ 适合处理旧事，别急着表态。（幸运色酒红 · 幸运数字9）
 假期　工作日 · 距中秋节还有 9 天
 ```
 
@@ -50,7 +50,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 # 只看内容，不推送到微信
-python3 main.py --dry-run --city 合肥 --sign 白羊座
+python3 main.py --dry-run --city 北京 --sign 天秤座
 
 # 完全不联网，用来确认渲染逻辑
 python3 main.py --dry-run --offline --date 2026-10-01
@@ -62,8 +62,8 @@ python3 main.py --dry-run --offline --date 2026-10-01
 export PUSHPLUS_TOKEN=你的token
 export QWEATHER_KEY=你的key
 export QWEATHER_HOST=你的专属host
-export CITY=合肥
-export ZODIAC=白羊座
+export CITY=北京
+export ZODIAC=天秤座
 python3 main.py
 ```
 
@@ -104,8 +104,8 @@ python3 main.py
    | `PUSHPLUS_TOKEN` | 是 | 推送用的 token |
    | `QWEATHER_KEY` | 建议 | 和风天气 KEY，不填则直接用备用天气源 |
    | `QWEATHER_HOST` | 建议 | 你的专属 API Host，例如 `abcdefg.re.qweatherapi.com`，不要带 `https://` |
-   | `CITY` | 是 | 城市名，例如 `合肥` |
-   | `ZODIAC` | 是 | 你的星座，例如 `白羊座`（也接受 `aries`） |
+   | `CITY` | 是 | 城市名，例如 `北京` |
+   | `ZODIAC` | 是 | 你的星座，例如 `天秤座`（也接受 `libra`） |
    | `TIANAPI_KEY` | 否 | 天行数据 key，没有就自动跳过星座段 |
    | `DEEPSEEK_API_KEY` | 否 | DeepSeek key，没有就自动跳过 AI 建议段 |
    | `PUSHPLUS_TOPIC` | 否 | 只有群组推送才需要 |
@@ -126,8 +126,8 @@ python3 main.py
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `PUSHPLUS_TOKEN` | 无 | 必填，正式发送时缺了会直接报错退出 |
-| `CITY` | 合肥 | 也支持 `--city` 临时覆盖 |
-| `ZODIAC` | 白羊座 | 也支持 `--sign`；写 `--no-zodiac` 可整段去掉 |
+| `CITY` | 北京 | 也支持 `--city` 临时覆盖 |
+| `ZODIAC` | 天秤座 | 也支持 `--sign`；写 `--no-zodiac` 可整段去掉 |
 | `QWEATHER_KEY` / `QWEATHER_HOST` | 空 / `devapi.qweather.com` | 都填上才走和风天气 |
 | `TIANAPI_KEY` | 空 | 天行数据 key，填了优先用它取星座运势 |
 | `DEEPSEEK_API_KEY` | 空 | DeepSeek key，填了才会生成"建议"那一段 |
