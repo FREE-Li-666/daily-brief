@@ -1,6 +1,8 @@
-# 每日早报：微信定时推送
+# AI 每日早报
 
-每天早上 07:00（北京时间）自动给你发一条微信，内容包括今天的天气、黄历宜忌、星座运势和节假日状态。
+基于 Python 与 DeepSeek API 的自动化早报服务。每天北京时间 07:00，程序聚合天气、农历、黄历、星座和节假日信息，由大模型生成当天建议，再通过 PushPlus 推送到微信。
+
+技术栈：Python 3.12、DeepSeek Chat API、GitHub Actions、unittest。
 
 ```
 🌤 9月16日 周三 · 北京
@@ -11,7 +13,7 @@
 假期　工作日 · 距中秋节还有 9 天
 ```
 
-上面这段是真实的本地试跑输出（`--dry-run`，没有发到微信）；星座那行是示意，实际取不到时会整行省略。
+以下为脱敏示例输出；城市和星座不代表实际配置。实时数据取不到时，对应内容会自动省略或切换备用来源。
 
 定时跑在 GitHub Actions 上，电脑关机也能收到。任何单个数据源挂掉都不会导致当天收不到消息，只会在末尾多一行提示。
 
@@ -26,23 +28,30 @@
 | AI 建议 | DeepSeek（`deepseek-chat`） | 无（未配置 key 或调用失败时整段省略） |
 | 推送 | PushPlus | 无（发送失败会让任务变红并给你发邮件） |
 
-## 一、先准备好两个 key（各约两分钟）
+## 核心设计
+
+- 多源降级：天气按和风天气、wttr.in、Open-Meteo 的顺序尝试，接口失败不会阻断早报。
+- 故障隔离：星座、AI 建议和辅助数据均独立降级；AI 服务异常时只省略建议段。
+- 事实约束：模型只能使用已经生成的天气与日期信息，输出限制为 80 字以内，并清除格式标记。
+- 离线测试：节假日、接口降级、消息渲染和推送失败语义均由离线单元测试覆盖。
+
+## 一、配置第三方服务
 
 1. **PushPlus**（负责把消息送进微信，必做）
-   打开 https://www.pushplus.plus ，用微信扫码登录，在"一对一推送"页面复制你的 `token`。
+   打开 https://www.pushplus.plus ，登录后在“一对一推送”页面获取 `token`。
 
 2. **和风天气**（负责天气数据，建议做）
-   打开 https://dev.qweather.com ，注册后在控制台创建项目，拿到 `KEY`，同时记下控制台给你的 **API Host**（形如 `abcdefg.re.qweatherapi.com`，和风现在的免费订阅要求用自己的专属域名）。
+   打开 https://dev.qweather.com ，创建项目后获取 `KEY` 和 **API Host**（形如 `abcdefg.re.qweatherapi.com`，不要包含 `https://`）。
 
    不注册也能用，程序会自动走 wttr.in 或 Open-Meteo，内容和温度照样准，只是少了穿衣、紫外线这类生活指数。
 
 3. **天行数据**（负责星座运势，可选）
-  打开 https://www.tianapi.com ，注册后申请"星座运势"接口，拿到 key 填进 `TIANAPI_KEY`。没有 key 时程序会尝试免 key 的公共接口，取不到就跳过星座那一段，不影响其他内容。
+   打开 https://www.tianapi.com ，注册后申请"星座运势"接口，拿到 key 填进 `TIANAPI_KEY`。没有 key 时程序会尝试免 key 的公共接口，取不到就跳过星座那一段，不影响其他内容。
 
 4. **DeepSeek**（负责生成穿衣与出行提醒，可选）
    打开 https://platform.deepseek.com ，注册后在 API Keys 页面创建一个 key，填进 `DEEPSEEK_API_KEY`。不填就不会有"建议"那一段，其余内容照常。
 
-## 二、本地试跑（可选，但建议先做）
+## 二、本地运行
 
 ```bash
 cd daily-brief
@@ -56,70 +65,47 @@ python3 main.py --dry-run --city 北京 --sign 天秤座
 python3 main.py --dry-run --offline --date 2026-10-01
 ```
 
-想看真实效果就直接把 key 填进环境变量再跑：
+需要真实数据或微信推送时，通过环境变量提供凭据：
 
 ```bash
-export PUSHPLUS_TOKEN=你的token
-export QWEATHER_KEY=你的key
-export QWEATHER_HOST=你的专属host
+export PUSHPLUS_TOKEN='<pushplus-token>'
+export QWEATHER_KEY='<qweather-key>'
+export QWEATHER_HOST='<qweather-api-host>'
 export CITY=北京
 export ZODIAC=天秤座
 python3 main.py
 ```
 
-## 三、部署到 GitHub（每天自动跑）
+## 三、部署到 GitHub
 
-你已经有 GitHub 账号，本机还没有 `gh` 命令和 Git 身份，按下面的顺序做一次就好。
+1. **创建仓库**
 
-1. **装 gh 并登录**（也可以跳过这步，全部在网页上点）
+   Fork 本项目，或将代码复制到自己的 GitHub 仓库。公开或私有仓库均可，但不要把 `.env` 或真实密钥提交到版本库。
 
-   ```bash
-   brew install gh
-   gh auth login
-   ```
+2. **配置 Secrets**
 
-2. **配置 Git 身份并初始化仓库**
-
-   ```bash
-   cd daily-brief
-   git config --global user.name "你的名字"
-   git config --global user.email "你的邮箱"
-   git init -b main
-   git add .
-   git commit -m "feat: 每日早报初始版本"
-   ```
-
-3. **创建远程仓库并推送**
-
-   ```bash
-   gh repo create daily-brief --private --source=. --remote=origin --push
-   ```
-
-   私库一样能用定时任务，免费额度每月 2000 分钟，这个任务每天跑不到 1 分钟，完全用不完。
-
-4. **填 Secrets**（在仓库网页 Settings → Secrets and variables → Actions → New repository secret）
+   在仓库中打开 Settings → Secrets and variables → Actions → New repository secret，添加运行所需的配置。
 
    | 名称 | 必填 | 说明 |
    | --- | --- | --- |
-   | `PUSHPLUS_TOKEN` | 是 | 推送用的 token |
+   | `PUSHPLUS_TOKEN` | 正式推送时是 | 微信推送用的 token |
    | `QWEATHER_KEY` | 建议 | 和风天气 KEY，不填则直接用备用天气源 |
-   | `QWEATHER_HOST` | 建议 | 你的专属 API Host，例如 `abcdefg.re.qweatherapi.com`，不要带 `https://` |
-   | `CITY` | 是 | 城市名，例如 `北京` |
-   | `ZODIAC` | 是 | 你的星座，例如 `天秤座`（也接受 `libra`） |
+   | `QWEATHER_HOST` | 建议 | 专属 API Host，例如 `abcdefg.re.qweatherapi.com`，不要带 `https://` |
+   | `CITY` | 否 | 城市名；未配置时默认 `北京` |
+   | `ZODIAC` | 否 | 星座；未配置时默认 `天秤座`，也接受 `libra` |
    | `TIANAPI_KEY` | 否 | 天行数据 key，没有就自动跳过星座段 |
    | `DEEPSEEK_API_KEY` | 否 | DeepSeek key，没有就自动跳过 AI 建议段 |
+   | `HOROSCOPE_URL` | 否 | 自定义星座接口地址模板 |
    | `PUSHPLUS_TOPIC` | 否 | 只有群组推送才需要 |
+   | `HTTP_TIMEOUT` | 否 | 单个请求的超时秒数，默认 `8` |
 
-5. **手动触发一次验证**
+3. **手动验证**
 
-   ```bash
-   gh workflow run "每日早报"
-   gh run watch
-   ```
+   在仓库的 Actions 页面进入“每日早报”，点击 `Run workflow`。勾选 `dry_run` 时只生成预览，不发送微信；确认内容和测试通过后，再执行一次真实推送。
 
-   或者在仓库的 Actions 页面点 `每日早报` → `Run workflow`。勾上 `dry_run` 就只打印内容、不推到微信，适合先看排版。
+4. **定时运行**
 
-6. 收到微信就算通了。之后每天 07:00 自动送达。
+   工作流按 `0 23 * * *`（UTC）运行，对应北京时间次日 07:00。GitHub 的高峰排队可能导致实际执行时间延迟数分钟。
 
 ## 四、配置项速查
 
