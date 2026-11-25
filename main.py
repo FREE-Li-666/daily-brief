@@ -16,6 +16,7 @@ import sys
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
+import advice
 import calendar_cn
 import pushplus
 import render
@@ -38,6 +39,7 @@ class Config:
     qweather_host: str
     tianapi_key: str
     horoscope_url: str
+    deepseek_key: str
     timeout: float
 
 
@@ -56,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--city", help=f"城市名，默认取环境变量 CITY，再默认 {DEFAULT_CITY}")
     parser.add_argument("--sign", help=f"星座，默认取环境变量 ZODIAC，再默认 {DEFAULT_SIGN}")
     parser.add_argument("--no-zodiac", action="store_true", help="不发送星座那一段")
+    parser.add_argument("--no-advice", action="store_true", help="不发送 AI 建议那一段")
     parser.add_argument("--verbose", action="store_true", help="打印各数据源的失败原因")
     return parser
 
@@ -75,6 +78,7 @@ def load_config(args: argparse.Namespace) -> Config:
         qweather_host=(os.environ.get("QWEATHER_HOST") or weather.QWEATHER_DEFAULT_HOST).strip(),
         tianapi_key=(os.environ.get("TIANAPI_KEY") or "").strip(),
         horoscope_url=(os.environ.get("HOROSCOPE_URL") or "").strip(),
+        deepseek_key=(os.environ.get("DEEPSEEK_API_KEY") or "").strip(),
         timeout=timeout,
     )
 
@@ -113,7 +117,8 @@ def collect(args: argparse.Namespace, config: Config, target: dt.date) -> render
         if fortune is None:
             warnings.append("星座运势暂时取不到，已省略")
 
-    return render.BriefData(
+    # warnings 与 data.warnings 是同一个列表，下面追加的建议段提示会一并出现在消息末尾
+    data = render.BriefData(
         date=target,
         city=config.city,
         weather=weather_result.weather,
@@ -122,6 +127,21 @@ def collect(args: argparse.Namespace, config: Config, target: dt.date) -> render
         holiday_line=calendar_cn.describe_holiday_line(target, holidays),
         warnings=warnings,
     )
+
+    if not args.no_advice and not args.offline:
+        result = advice.fetch_advice(
+            advice.build_facts(data.lines()),
+            api_key=config.deepseek_key,
+            timeout=max(config.timeout, advice.DEFAULT_TIMEOUT),
+        )
+        data.advice = result.advice
+        if result.advice is None:
+            warnings.append("AI 建议暂时取不到，已省略")
+        if args.verbose:
+            for error in result.errors:
+                print(f"[建议] {error}", file=sys.stderr)
+
+    return data
 
 
 def run(argv=None) -> int:

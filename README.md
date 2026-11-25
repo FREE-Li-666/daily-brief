@@ -23,6 +23,7 @@
 | 节假日 | holiday-cn 公开数据集（联网后自动缓存到 `data/holidays/`） | 本地缓存 → 只按周末判断 |
 | 黄历、农历、节气 | `lunar_python` 本地计算 | 无网络依赖，不会失效 |
 | 星座运势 | 天行数据（填了 key 时） | 免 key 公共接口 → 取不到就整段省略 |
+| AI 建议 | DeepSeek（`deepseek-chat`） | 无（未配置 key 或调用失败时整段省略） |
 | 推送 | PushPlus | 无（发送失败会让任务变红并给你发邮件） |
 
 ## 一、先准备好两个 key（各约两分钟）
@@ -36,7 +37,10 @@
    不注册也能用，程序会自动走 wttr.in 或 Open-Meteo，内容和温度照样准，只是少了穿衣、紫外线这类生活指数。
 
 3. **天行数据**（负责星座运势，可选）
-   打开 https://www.tianapi.com ，注册后申请"星座运势"接口，拿到 key 填进 `TIANAPI_KEY`。没有 key 时程序会尝试免 key 的公共接口，取不到就跳过星座那一段，不影响其他内容。
+  打开 https://www.tianapi.com ，注册后申请"星座运势"接口，拿到 key 填进 `TIANAPI_KEY`。没有 key 时程序会尝试免 key 的公共接口，取不到就跳过星座那一段，不影响其他内容。
+
+4. **DeepSeek**（负责生成穿衣与出行提醒，可选）
+   打开 https://platform.deepseek.com ，注册后在 API Keys 页面创建一个 key，填进 `DEEPSEEK_API_KEY`。不填就不会有"建议"那一段，其余内容照常。
 
 ## 二、本地试跑（可选，但建议先做）
 
@@ -103,6 +107,7 @@ python3 main.py
    | `CITY` | 是 | 城市名，例如 `合肥` |
    | `ZODIAC` | 是 | 你的星座，例如 `白羊座`（也接受 `aries`） |
    | `TIANAPI_KEY` | 否 | 天行数据 key，没有就自动跳过星座段 |
+   | `DEEPSEEK_API_KEY` | 否 | DeepSeek key，没有就自动跳过 AI 建议段 |
    | `PUSHPLUS_TOPIC` | 否 | 只有群组推送才需要 |
 
 5. **手动触发一次验证**
@@ -125,6 +130,7 @@ python3 main.py
 | `ZODIAC` | 白羊座 | 也支持 `--sign`；写 `--no-zodiac` 可整段去掉 |
 | `QWEATHER_KEY` / `QWEATHER_HOST` | 空 / `devapi.qweather.com` | 都填上才走和风天气 |
 | `TIANAPI_KEY` | 空 | 天行数据 key，填了优先用它取星座运势 |
+| `DEEPSEEK_API_KEY` | 空 | DeepSeek key，填了才会生成"建议"那一段 |
 | `HOROSCOPE_URL` | 空 | 自定义星座接口地址模板，占位符 `{key}`、`{sign}`、`{api_key}` |
 | `PUSHPLUS_TOPIC` | 空 | 群组推送话题编码 |
 | `HTTP_TIMEOUT` | 8 | 单个请求的超时秒数 |
@@ -138,6 +144,7 @@ python3 main.py
 | `--date 2026-10-01` | 指定日期，用来检查节日和调休的渲染效果 |
 | `--city` / `--sign` | 临时覆盖城市和星座 |
 | `--no-zodiac` | 不发送星座那一段 |
+| `--no-advice` | 不发送 AI 建议那一段 |
 | `--verbose` | 把各数据源的失败原因打到日志里 |
 
 ## 五、跑测试
@@ -146,7 +153,7 @@ python3 main.py
 python3 -m unittest discover -s tests -t . -v
 ```
 
-覆盖：节假日四种状态（工作日、周末、法定节日、调休上班）、下个假期倒数、缓存回退、天气三级降级、星座接口异常降级、消息渲染与 HTML 转义、PushPlus 失败语义、命令行退出码。
+覆盖：节假日四种状态（工作日、周末、法定节日、调休上班）、下个假期倒数、缓存回退、天气三级降级、星座接口异常降级、AI 建议的解析与降级、消息渲染与 HTML 转义、PushPlus 失败语义、命令行退出码。
 
 ## 六、常见问题
 
@@ -165,6 +172,9 @@ GitHub 会在仓库连续 60 天没有任何活动后暂停定时任务，并给
 **星座那一段没出现。**
 星座运势是全网最不稳定的一类接口，免 key 的公共接口经常超时，也容易被海外节点拦。想稳定拿到就配一个天行数据的免费 key（`TIANAPI_KEY`），或者用 `HOROSCOPE_URL` 接自己熟悉的服务；都不配也不影响天气、黄历、节假日。
 
+**建议那一段没出现。**
+先看有没有配 `DEEPSEEK_API_KEY`。配了还是没有，说明这次调用失败——接口超时、余额不足、返回内容为空或超过 80 字都会被整段省略。加 `--verbose` 能看到具体原因；这一段失败不会影响其他内容。
+
 **本地跑报 `CERTIFICATE_VERIFY_FAILED`。**
 macOS 上 python.org 安装包的解释器默认不带 CA 证书。程序已经会自动去找 `certifi` 包或系统证书（`/etc/ssl/cert.pem`），通常不用管；如果还是报错，装一下证书即可：`pip install certifi`，或运行 `/Applications/Python 3.13/Install Certificates.command`。
 
@@ -182,6 +192,7 @@ macOS 上 python.org 安装包的解释器默认不带 CA 证书。程序已经�
 | `weather.py` | 和风天气、wttr.in、Open-Meteo 三级降级 |
 | `calendar_cn.py` | 节假日数据集与缓存、农历黄历本地计算 |
 | `zodiac.py` | 星座运势取用与容错解析 |
+| `advice.py` | 调用 DeepSeek 生成穿衣与出行提醒，失败即整段省略 |
 | `render.py` | 纯文本与 HTML 两版消息渲染 |
 | `pushplus.py` | PushPlus 发送与失败语义 |
 | `net.py` | 标准库 HTTP 封装，含重试与超时 |

@@ -56,6 +56,31 @@ class RunTests(unittest.TestCase):
             main.run(["--offline", "--dry-run", "--date", "2026-10-01", "--city", "杭州"])
         self.assertIn("杭州", buffer.getvalue())
 
+    def test_建议段接入dry_run输出(self):
+        buffer = io.StringIO()
+        with mock.patch.object(main.weather, "get_weather", return_value=main.weather.WeatherResult()):
+            with mock.patch.object(main.calendar_cn, "load_holiday_days", return_value={}):
+                with mock.patch.object(
+                    main.advice,
+                    "fetch_advice",
+                    return_value=main.advice.AdviceResult(advice=main.advice.Advice(text="今天多云，出门带件外套。")),
+                ):
+                    with contextlib.redirect_stdout(buffer):
+                        code = main.run(["--dry-run", "--no-zodiac", "--date", "2026-10-01"])
+        self.assertEqual(code, 0)
+        self.assertIn("建议　今天多云，出门带件外套。", buffer.getvalue())
+
+    def test_加no_advice时不请求大模型(self):
+        buffer = io.StringIO()
+        with mock.patch.object(main.weather, "get_weather", return_value=main.weather.WeatherResult()):
+            with mock.patch.object(main.calendar_cn, "load_holiday_days", return_value={}):
+                with mock.patch.object(main.advice, "fetch_advice") as fetcher:
+                    with contextlib.redirect_stdout(buffer):
+                        code = main.run(["--dry-run", "--no-zodiac", "--no-advice", "--date", "2026-10-01"])
+        self.assertEqual(code, 0)
+        fetcher.assert_not_called()
+        self.assertNotIn("建议", buffer.getvalue())
+
     def test_非法日期参数被拒绝(self):
         with self.assertRaises(SystemExit):
             with contextlib.redirect_stderr(io.StringIO()):

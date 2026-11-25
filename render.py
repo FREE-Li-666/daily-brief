@@ -6,6 +6,7 @@ import datetime as dt
 import html
 from dataclasses import dataclass, field
 
+from advice import Advice
 from calendar_cn import WEEKDAY_CN, Almanac
 from weather import Weather
 from zodiac import ZodiacFortune
@@ -21,6 +22,7 @@ class BriefData:
     almanac: Almanac | None = None
     zodiac: ZodiacFortune | None = None
     holiday_line: str = ""
+    advice: Advice | None = None
     warnings: list[str] = field(default_factory=list)
 
     def heading(self) -> str:
@@ -44,6 +46,8 @@ class BriefData:
             rows.append(("星座", self.zodiac.line()))
         if self.holiday_line:
             rows.append(("假期", self.holiday_line))
+        if self.advice is not None and self.advice.line():
+            rows.append(("建议", self.advice.line()))
         return rows
 
 

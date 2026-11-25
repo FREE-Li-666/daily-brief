@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 import render  # noqa: E402
+from advice import Advice  # noqa: E402
 from calendar_cn import Almanac  # noqa: E402
 from weather import Weather  # noqa: E402
 from zodiac import ZodiacFortune  # noqa: E402
@@ -62,6 +63,13 @@ class TextRenderTests(unittest.TestCase):
     def test_提示行出现在末尾(self):
         text = render.render_text(make_data(warnings=["天气来自备用源 wttr.in", "星座运势暂时取不到，已省略"]))
         self.assertTrue(text.endswith("提示　天气来自备用源 wttr.in；星座运势暂时取不到，已省略"))
+
+    def test_建议段出现在假期之后(self):
+        text = render.render_text(make_data(advice=Advice(text="今天多云，出门带件外套。")))
+        self.assertTrue(text.endswith("建议　今天多云，出门带件外套。"))
+
+    def test_建议缺失时整段不出现(self):
+        self.assertNotIn("建议", render.render_text(make_data()))
 
     def test_标题(self):
         self.assertEqual(render.build_title(make_data()), "10月1日早报 · 上海")

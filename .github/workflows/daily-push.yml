@@ -26,6 +26,7 @@ jobs:
       CITY: ${{ secrets.CITY }}
       ZODIAC: ${{ secrets.ZODIAC }}
       TIANAPI_KEY: ${{ secrets.TIANAPI_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
